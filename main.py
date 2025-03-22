@@ -1,57 +1,39 @@
-#  Copyright (c) ChernV (@otter18), 2021.
+from flask import Flask, request, jsonify
+import requests
 
-import os
-import random
+app = Flask(__name__)
 
-from setup import bot, logger
-from webhook import app
+# Remplace ici par ton token bot et ton chat_id
+TOKEN = "TON_TOKEN_BOT_ICI"
+CHAT_ID = "-1002553433496"  # Ton chat_id
 
-# --------------- dialog params -------------------
-dialog = {
-    'hello': {
-        'in': ['привет', 'hello', 'hi', 'privet', 'hey'],
-        'out': ['Приветствую', 'Здравствуйте', 'Привет!']
-    },
-    'how r u': {
-        'in': ['как дела', 'как ты', 'how are you', 'дела', 'how is it going'],
-        'out': ['Хорошо', 'Отлично', 'Good. And how are u?']
-    },
-    'name': {
-        'in': ['зовут', 'name', 'имя'],
-        'out': [
-            'Я telegram-template-bot',
-            'Я бот шаблон, но ты можешь звать меня в свой проект',
-            'Это секрет. Используй команду /help, чтобы узнать'
-        ]
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+
+@app.route('/send_paris', methods=['POST'])
+def send_paris():
+    data = request.get_json()
+    
+    if not data or 'message' not in data:
+        return jsonify({"error": "Invalid payload"}), 400
+
+    message = data['message']
+
+    payload = {
+        'chat_id': CHAT_ID,
+        'text': message,
+        'parse_mode': 'HTML'
     }
-}
 
+    response = requests.post(TELEGRAM_API_URL, data=payload)
 
-# --------------- bot -------------------
-@bot.message_handler(commands=['help', 'start'])
-def say_welcome(message):
-    logger.info(f'</code>@{message.from_user.username}<code> ({message.chat.id}) used /start or /help')
-    bot.send_message(
-        message.chat.id,
-        '<b>Hello! This is a telegram bot template written by <a href="https://github.com/otter18">otter18</a></b>',
-        parse_mode='html'
-    )
-
-
-@bot.message_handler(func=lambda message: True)
-def echo(message):
-    for t, resp in dialog.items():
-        if sum([e in message.text.lower() for e in resp['in']]):
-            logger.info(f'</code>@{message.from_user.username}<code> ({message.chat.id}) used {t}:\n\n%s', message.text)
-            bot.send_message(message.chat.id, random.choice(resp['out']))
-            return
-
-    logger.info(f'</code>@{message.from_user.username}<code> ({message.chat.id}) used echo:\n\n%s', message.text)
-    bot.send_message(message.chat.id, message.text)
-
-
-if __name__ == '__main__':
-    if os.environ.get("IS_PRODUCTION", "False") == "True":
-        app.run()
+    if response.status_code == 200:
+        return jsonify({"status": "Message sent to Telegram"}), 200
     else:
-        bot.infinity_polling()
+        return jsonify({"error": "Failed to send message"}), 500
+
+@app.route('/', methods=['GET'])
+def home():
+    return "Bot webhook running!", 200
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
